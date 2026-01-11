@@ -26,7 +26,7 @@ function AppContent() {
         onVersionChange={setActiveVersion}
         viewport={viewport}
         onViewportChange={setViewport}
-        versionCount={versions.length}
+        versions={versions}
       />
       <main className="flex justify-center">
         <div

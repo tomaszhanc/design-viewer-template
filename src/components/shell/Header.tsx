@@ -8,7 +8,7 @@ interface HeaderProps {
   onVersionChange: (version: string) => void
   viewport: ViewportSize
   onViewportChange: (viewport: ViewportSize) => void
-  versionCount: number
+  versions: { id: string; title: string }[]
 }
 
 export function Header({
@@ -16,9 +16,8 @@ export function Header({
   onVersionChange,
   viewport,
   onViewportChange,
-  versionCount,
+  versions,
 }: HeaderProps) {
-  const versions = Array.from({ length: versionCount }, (_, i) => `v${i + 1}`)
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -27,8 +26,8 @@ export function Header({
           <Tabs value={activeVersion} onValueChange={onVersionChange}>
             <TabsList className="inline-flex w-max">
               {versions.map((version) => (
-                <TabsTrigger key={version} value={version} className="uppercase">
-                  {version}
+                <TabsTrigger key={version.id} value={version.id}>
+                  {version.title || version.id}
                 </TabsTrigger>
               ))}
             </TabsList>
