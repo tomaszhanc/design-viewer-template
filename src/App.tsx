@@ -7,7 +7,7 @@ import { versions } from "@versions/index"
 
 function AppContent() {
   const [activeVersion, setActiveVersion] = useState(versions[0]?.id ?? "")
-  const [viewport, setViewport] = useState<ViewportSize>("desktop")
+  const [viewport, setViewport] = useState<ViewportSize>("full")
 
   const ActiveComponent = versions.find((v) => v.id === activeVersion)?.component
 
