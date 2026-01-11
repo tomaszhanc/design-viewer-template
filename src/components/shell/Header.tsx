@@ -26,8 +26,8 @@ export function Header({
           <Tabs value={activeVersion} onValueChange={onVersionChange}>
             <TabsList className="inline-flex w-max">
               {versions.map((version) => (
-                <TabsTrigger key={version.id} value={version.id}>
-                  {version.title || version.id}
+                <TabsTrigger key={version.id} value={version.id} title={version.title}>
+                  {version.id}
                 </TabsTrigger>
               ))}
             </TabsList>
