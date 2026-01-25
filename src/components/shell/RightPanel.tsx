@@ -104,6 +104,13 @@ export function RightPanel({
   const pageVersions = versions.filter((v) => v.type === "page")
   const elementVersions = versions.filter((v) => v.type === "element")
 
+  const nonEmptySections = [
+    finalVersions.length > 0,
+    pageVersions.length > 0,
+    elementVersions.length > 0,
+  ].filter(Boolean).length
+  const showSections = nonEmptySections > 1
+
   useEffect(() => {
     setLocalNotes(notesMap[activeVersion]?.notes ?? "")
   }, [notesMap, activeVersion])
@@ -253,50 +260,52 @@ export function RightPanel({
 
       <ScrollArea className="flex-1">
         <div className="py-1">
-          <CollapsibleSection
-            title="Final"
-            count={finalVersions.length}
-            isExpanded={expandedSections.final}
-            onToggle={() => toggleSection("final")}
-          >
-            <div className="px-2 pb-2">
-              {finalVersions.length > 0 ? (
-                finalVersions.map((version) => renderVersionButton(version, true))
-              ) : (
-                <p className="text-xs text-muted-foreground px-3 py-2">
-                  No final versions yet
-                </p>
+          {showSections ? (
+            <>
+              {finalVersions.length > 0 && (
+                <CollapsibleSection
+                  title="Final"
+                  count={finalVersions.length}
+                  isExpanded={expandedSections.final}
+                  onToggle={() => toggleSection("final")}
+                >
+                  <div className="px-2 pb-2">
+                    {finalVersions.map((version) => renderVersionButton(version, true))}
+                  </div>
+                </CollapsibleSection>
               )}
-            </div>
-          </CollapsibleSection>
 
-          <CollapsibleSection
-            title="Pages"
-            count={pageVersions.length}
-            isExpanded={expandedSections.page}
-            onToggle={() => toggleSection("page")}
-          >
-            <div className="px-2 pb-2">
-              {pageVersions.map((version) => renderVersionButton(version, true))}
-            </div>
-          </CollapsibleSection>
-
-          <CollapsibleSection
-            title="Elements"
-            count={elementVersions.length}
-            isExpanded={expandedSections.element}
-            onToggle={() => toggleSection("element")}
-          >
-            <div className="px-2 pb-2">
-              {elementVersions.length > 0 ? (
-                elementVersions.map((version) => renderVersionButton(version, true))
-              ) : (
-                <p className="text-xs text-muted-foreground px-3 py-2">
-                  No elements yet
-                </p>
+              {pageVersions.length > 0 && (
+                <CollapsibleSection
+                  title="Pages"
+                  count={pageVersions.length}
+                  isExpanded={expandedSections.page}
+                  onToggle={() => toggleSection("page")}
+                >
+                  <div className="px-2 pb-2">
+                    {pageVersions.map((version) => renderVersionButton(version, true))}
+                  </div>
+                </CollapsibleSection>
               )}
+
+              {elementVersions.length > 0 && (
+                <CollapsibleSection
+                  title="Elements"
+                  count={elementVersions.length}
+                  isExpanded={expandedSections.element}
+                  onToggle={() => toggleSection("element")}
+                >
+                  <div className="px-2 pb-2">
+                    {elementVersions.map((version) => renderVersionButton(version, true))}
+                  </div>
+                </CollapsibleSection>
+              )}
+            </>
+          ) : (
+            <div className="px-2">
+              {versions.map((version) => renderVersionButton(version, true))}
             </div>
-          </CollapsibleSection>
+          )}
         </div>
       </ScrollArea>
 
