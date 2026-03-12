@@ -3,12 +3,18 @@ import { ThemeProvider } from "@/contexts/ThemeContext"
 import { RightPanel } from "@/components/shell/RightPanel"
 import { EmptyVersions } from "@/components/EmptyVersions"
 import { type ViewportSize, getViewportWidth } from "@/components/shell/ViewportSelector"
-import { versions as initialVersions, type VariantType, type Version } from "@versions/index"
+import { versions as initialVersions, type Version } from "@versions/index"
 
-type NotesData = Record<string, { notes?: string; source?: string; approvedAt?: string }>
+export type VariantStatus = "pending" | "approved" | "rejected"
+
+type NotesData = Record<string, {
+  notes?: string
+  status?: VariantStatus
+  statusUpdatedAt?: string
+}>
 
 function AppContent() {
-  const [versions, setVersions] = useState<Version[]>(initialVersions)
+  const [versions] = useState<Version[]>(initialVersions)
   const [activeVersion, setActiveVersion] = useState(versions[0]?.id ?? "")
   const [viewport, setViewport] = useState<ViewportSize>("full")
   const [notesData, setNotesData] = useState<NotesData>({})
@@ -40,60 +46,25 @@ function AppContent() {
     [activeVersion, notesData]
   )
 
-  const handleMoveVariant = useCallback(
-    (id: string, targetType: VariantType) => {
-      fetch(`/api/versions/${id}/type`, {
+  const handleStatusChange = useCallback(
+    (id: string, status: VariantStatus, comment?: string) => {
+      const updated = {
+        ...notesData,
+        [id]: {
+          ...notesData[id],
+          notes: comment ?? notesData[id]?.notes,
+          status,
+          statusUpdatedAt: new Date().toISOString(),
+        },
+      }
+      setNotesData(updated)
+      fetch("/api/notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: targetType }),
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error("Failed to update variant type")
-          setVersions((prev) =>
-            prev.map((v) => (v.id === id ? { ...v, type: targetType } : v))
-          )
-        })
-        .catch(console.error)
+        body: JSON.stringify(updated),
+      }).catch(console.error)
     },
-    []
-  )
-
-  const handleRenameVariant = useCallback(
-    (id: string, title: string) => {
-      fetch(`/api/versions/${id}/title`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title }),
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error("Failed to rename variant")
-          setVersions((prev) =>
-            prev.map((v) => (v.id === id ? { ...v, title } : v))
-          )
-        })
-        .catch(console.error)
-    },
-    []
-  )
-
-  const handleRemoveVariant = useCallback(
-    (id: string) => {
-      fetch(`/api/versions/${id}`, {
-        method: "DELETE",
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error("Failed to remove variant")
-          setVersions((prev) => {
-            const filtered = prev.filter((v) => v.id !== id)
-            if (activeVersion === id && filtered.length > 0) {
-              setActiveVersion(filtered[0].id)
-            }
-            return filtered
-          })
-        })
-        .catch(console.error)
-    },
-    [activeVersion]
+    [notesData]
   )
 
   const ActiveComponent = versions.find((v) => v.id === activeVersion)?.component
@@ -125,9 +96,7 @@ function AppContent() {
           versions={versions}
           activeVersion={activeVersion}
           onVersionChange={setActiveVersion}
-          onMoveVariant={handleMoveVariant}
-          onRenameVariant={handleRenameVariant}
-          onRemoveVariant={handleRemoveVariant}
+          onStatusChange={handleStatusChange}
           notesMap={notesData}
           onNotesChange={handleNotesChange}
           viewport={viewport}

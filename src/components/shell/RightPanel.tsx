@@ -3,13 +3,10 @@ import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
-  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 import {
@@ -20,25 +17,22 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { SquareChevronLeft, SquareChevronRight, ChevronDown, ChevronRight } from "lucide-react"
+import { SquareChevronLeft, SquareChevronRight, Check, X, Circle } from "lucide-react"
 import { ViewportSelector, type ViewportSize } from "./ViewportSelector"
 import { ThemeToggle } from "./ThemeToggle"
-import type { VariantType } from "@versions/index"
+import type { VariantStatus } from "@/App"
 
 interface Version {
   id: string
   title: string
-  type: VariantType
 }
 
 interface RightPanelProps {
   versions: Version[]
   activeVersion: string
   onVersionChange: (id: string) => void
-  onMoveVariant: (id: string, targetType: VariantType) => void
-  onRenameVariant: (id: string, title: string) => void
-  onRemoveVariant: (id: string) => void
-  notesMap: Record<string, { notes?: string }>
+  onStatusChange: (id: string, status: VariantStatus, comment?: string) => void
+  notesMap: Record<string, { notes?: string; status?: VariantStatus; statusUpdatedAt?: string }>
   onNotesChange: (notes: string) => void
   viewport: ViewportSize
   onViewportChange: (viewport: ViewportSize) => void
@@ -46,44 +40,20 @@ interface RightPanelProps {
   onToggleCollapse: () => void
 }
 
-interface CollapsibleSectionProps {
-  title: string
-  count: number
-  isExpanded: boolean
-  onToggle: () => void
-  children: React.ReactNode
-}
-
-function CollapsibleSection({
-  title,
-  count,
-  isExpanded,
-  onToggle,
-  children,
-}: CollapsibleSectionProps) {
-  return (
-    <Collapsible open={isExpanded} onOpenChange={onToggle}>
-      <CollapsibleTrigger className="flex items-center gap-2 w-full px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent/50 transition-colors">
-        {isExpanded ? (
-          <ChevronDown className="h-4 w-4" />
-        ) : (
-          <ChevronRight className="h-4 w-4" />
-        )}
-        <span>{title}</span>
-        <span className="text-xs">({count})</span>
-      </CollapsibleTrigger>
-      <CollapsibleContent>{children}</CollapsibleContent>
-    </Collapsible>
-  )
-}
+const REJECTION_REASONS = [
+  "Layout doesn't fit this type of app",
+  "Too noisy, looks messy",
+  "Dark mode is too dark",
+  "Colors don't work together",
+  "Spacing feels off",
+  "Typography needs work",
+]
 
 export function RightPanel({
   versions,
   activeVersion,
   onVersionChange,
-  onMoveVariant,
-  onRenameVariant,
-  onRemoveVariant,
+  onStatusChange,
   notesMap,
   onNotesChange,
   viewport,
@@ -92,24 +62,12 @@ export function RightPanel({
   onToggleCollapse,
 }: RightPanelProps) {
   const [localNotes, setLocalNotes] = useState(notesMap[activeVersion]?.notes ?? "")
-  const [expandedSections, setExpandedSections] = useState({
-    final: true,
-    page: true,
-    element: true,
-  })
-  const [renameDialog, setRenameDialog] = useState<{ id: string; title: string } | null>(null)
-  const [deleteDialog, setDeleteDialog] = useState<{ id: string; title: string } | null>(null)
-
-  const finalVersions = versions.filter((v) => v.type === "final")
-  const pageVersions = versions.filter((v) => v.type === "page")
-  const elementVersions = versions.filter((v) => v.type === "element")
-
-  const nonEmptySections = [
-    finalVersions.length > 0,
-    pageVersions.length > 0,
-    elementVersions.length > 0,
-  ].filter(Boolean).length
-  const showSections = nonEmptySections > 1
+  const [statusDialog, setStatusDialog] = useState<{
+    id: string
+    title: string
+    action: "approved" | "rejected"
+  } | null>(null)
+  const [statusComment, setStatusComment] = useState("")
 
   useEffect(() => {
     setLocalNotes(notesMap[activeVersion]?.notes ?? "")
@@ -121,52 +79,51 @@ export function RightPanel({
     }
   }, [localNotes, notesMap, activeVersion, onNotesChange])
 
-  const toggleSection = (section: VariantType) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }))
+  const getStatus = (id: string): VariantStatus => notesMap[id]?.status ?? "pending"
+
+  const statusIcon = (id: string) => {
+    const status = getStatus(id)
+    if (status === "approved") return <Check className="h-3 w-3 text-green-500 shrink-0" />
+    if (status === "rejected") return <X className="h-3 w-3 text-red-500 shrink-0" />
+    return <Circle className="h-3 w-3 text-muted-foreground/40 shrink-0" />
   }
 
-  const getTypeLabel = (type: VariantType) => {
-    switch (type) {
-      case "final": return "Final"
-      case "page": return "Pages"
-      case "element": return "Elements"
+  const openStatusDialog = (id: string, title: string, action: "approved" | "rejected") => {
+    setStatusDialog({ id, title, action })
+    setStatusComment(notesMap[id]?.notes ?? "")
+  }
+
+  const handleStatusSubmit = () => {
+    if (statusDialog) {
+      onStatusChange(statusDialog.id, statusDialog.action, statusComment || undefined)
+      setStatusDialog(null)
+      setStatusComment("")
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      e.preventDefault()
+      handleStatusSubmit()
     }
   }
 
   const renderContextMenuItems = (version: Version) => {
-    const types: VariantType[] = ["final", "page", "element"]
+    const currentStatus = getStatus(version.id)
     return (
       <>
-        <ContextMenuItem onClick={() => setRenameDialog({ id: version.id, title: version.title })}>
-          Rename
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        {types
-          .filter((t) => t !== version.type)
-          .map((t) => (
-            <ContextMenuItem key={t} onClick={() => onMoveVariant(version.id, t)}>
-              Move to {getTypeLabel(t)}
-            </ContextMenuItem>
-          ))}
-        <ContextMenuSeparator />
-        <ContextMenuItem
-          className="text-destructive focus:text-destructive"
-          onClick={() => setDeleteDialog({ id: version.id, title: version.title })}
-        >
-          Remove
-        </ContextMenuItem>
+        {currentStatus !== "approved" && (
+          <ContextMenuItem onClick={() => openStatusDialog(version.id, version.title, "approved")}>
+            Approve
+          </ContextMenuItem>
+        )}
+        {currentStatus !== "rejected" && (
+          <ContextMenuItem onClick={() => openStatusDialog(version.id, version.title, "rejected")}>
+            Reject
+          </ContextMenuItem>
+        )}
       </>
     )
-  }
-
-  const handleRenameSubmit = () => {
-    if (renameDialog && renameDialog.title.trim()) {
-      onRenameVariant(renameDialog.id, renameDialog.title.trim())
-      setRenameDialog(null)
-    }
   }
 
   const renderVersionButton = (version: Version, showTitle: boolean) => {
@@ -184,6 +141,7 @@ export function RightPanel({
                 isActive && "bg-accent text-accent-foreground font-medium"
               )}
             >
+              {statusIcon(version.id)}
               <span className="font-mono text-sm">{version.id}</span>
               <span className="text-xs text-muted-foreground truncate flex-1">
                 {version.title}
@@ -208,6 +166,7 @@ export function RightPanel({
               isActive && "bg-accent text-accent-foreground font-medium"
             )}
           >
+            {statusIcon(version.id)}
             <span className="font-mono text-xs">{version.id}</span>
           </button>
         </ContextMenuTrigger>
@@ -259,53 +218,8 @@ export function RightPanel({
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="py-1">
-          {showSections ? (
-            <>
-              {finalVersions.length > 0 && (
-                <CollapsibleSection
-                  title="Final"
-                  count={finalVersions.length}
-                  isExpanded={expandedSections.final}
-                  onToggle={() => toggleSection("final")}
-                >
-                  <div className="px-2 pb-2">
-                    {finalVersions.map((version) => renderVersionButton(version, true))}
-                  </div>
-                </CollapsibleSection>
-              )}
-
-              {pageVersions.length > 0 && (
-                <CollapsibleSection
-                  title="Pages"
-                  count={pageVersions.length}
-                  isExpanded={expandedSections.page}
-                  onToggle={() => toggleSection("page")}
-                >
-                  <div className="px-2 pb-2">
-                    {pageVersions.map((version) => renderVersionButton(version, true))}
-                  </div>
-                </CollapsibleSection>
-              )}
-
-              {elementVersions.length > 0 && (
-                <CollapsibleSection
-                  title="Elements"
-                  count={elementVersions.length}
-                  isExpanded={expandedSections.element}
-                  onToggle={() => toggleSection("element")}
-                >
-                  <div className="px-2 pb-2">
-                    {elementVersions.map((version) => renderVersionButton(version, true))}
-                  </div>
-                </CollapsibleSection>
-              )}
-            </>
-          ) : (
-            <div className="px-2">
-              {versions.map((version) => renderVersionButton(version, true))}
-            </div>
-          )}
+        <div className="px-2 py-1">
+          {versions.map((version) => renderVersionButton(version, true))}
         </div>
       </ScrollArea>
 
@@ -324,51 +238,51 @@ export function RightPanel({
         <ViewportSelector value={viewport} onChange={onViewportChange} />
       </div>
 
-      <Dialog open={renameDialog !== null} onOpenChange={(open) => !open && setRenameDialog(null)}>
+      <Dialog open={statusDialog !== null} onOpenChange={(open) => !open && setStatusDialog(null)}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
-            <DialogTitle>Rename variant</DialogTitle>
-          </DialogHeader>
-          <Input
-            value={renameDialog?.title ?? ""}
-            onChange={(e) => setRenameDialog((prev) => prev ? { ...prev, title: e.target.value } : null)}
-            onKeyDown={(e) => e.key === "Enter" && handleRenameSubmit()}
-            placeholder="Enter new name..."
-            autoFocus
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRenameDialog(null)}>
-              Cancel
-            </Button>
-            <Button onClick={handleRenameSubmit}>
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={deleteDialog !== null} onOpenChange={(open) => !open && setDeleteDialog(null)}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>Remove variant</DialogTitle>
+            <DialogTitle>
+              {statusDialog?.action === "approved" ? "Approve" : "Reject"} variant
+            </DialogTitle>
             <DialogDescription>
-              This will permanently delete "{deleteDialog?.title}" and its component file from the codebase. This action cannot be undone.
+              Add an optional comment for this decision.
             </DialogDescription>
           </DialogHeader>
+
+          {statusDialog?.action === "rejected" && (
+            <div className="flex flex-wrap gap-1.5">
+              {REJECTION_REASONS.map((reason) => (
+                <Button
+                  key={reason}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => setStatusComment((prev) => prev ? `${prev}\n${reason}` : reason)}
+                >
+                  {reason}
+                </Button>
+              ))}
+            </div>
+          )}
+
+          <Textarea
+            value={statusComment}
+            onChange={(e) => setStatusComment(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Add a comment..."
+            className="min-h-[80px]"
+            autoFocus
+          />
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialog(null)}>
+            <Button variant="outline" onClick={() => setStatusDialog(null)}>
               Cancel
             </Button>
             <Button
-              variant="destructive"
-              onClick={() => {
-                if (deleteDialog) {
-                  onRemoveVariant(deleteDialog.id)
-                  setDeleteDialog(null)
-                }
-              }}
+              variant={statusDialog?.action === "rejected" ? "destructive" : "default"}
+              onClick={handleStatusSubmit}
             >
-              Remove
+              {statusDialog?.action === "approved" ? "Approve" : "Reject"}
             </Button>
           </DialogFooter>
         </DialogContent>
