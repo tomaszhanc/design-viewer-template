@@ -1,6 +1,16 @@
 import { FileCode2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 export function EmptyVersions() {
+  const handleSeedDemo = () => {
+    fetch("/api/seed-demo", { method: "POST" })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to seed demo variants")
+        window.location.reload()
+      })
+      .catch(console.error)
+  }
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-3.5rem)] p-8">
       <div className="flex flex-col items-center gap-6 max-w-md text-center">
@@ -33,6 +43,12 @@ export function EmptyVersions() {
         <p className="text-xs text-muted-foreground">
           Then export it in <code className="font-mono bg-muted px-1 py-0.5 rounded">versions/index.ts</code>
         </p>
+
+        <div className="pt-2">
+          <Button variant="outline" onClick={handleSeedDemo}>
+            Add 5 demo variants
+          </Button>
+        </div>
       </div>
     </div>
   )
