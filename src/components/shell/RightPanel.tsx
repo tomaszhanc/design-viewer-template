@@ -17,7 +17,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { SquareChevronLeft, SquareChevronRight, Check, X, Circle } from "lucide-react"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { SquareChevronLeft, SquareChevronRight, Check, X, Circle, ChevronDown, ChevronRight } from "lucide-react"
 import { ViewportSelector, type ViewportSize } from "./ViewportSelector"
 import { ThemeToggle } from "./ThemeToggle"
 import type { VariantStatus } from "@/App"
@@ -68,6 +69,12 @@ export function RightPanel({
     action: "approved" | "rejected"
   } | null>(null)
   const [statusComment, setStatusComment] = useState("")
+  const [reviewedExpanded, setReviewedExpanded] = useState(false)
+
+  const getStatus = (id: string): VariantStatus => notesMap[id]?.status ?? "pending"
+
+  const pendingVersions = versions.filter((v) => getStatus(v.id) === "pending")
+  const reviewedVersions = versions.filter((v) => getStatus(v.id) !== "pending")
 
   useEffect(() => {
     setLocalNotes(notesMap[activeVersion]?.notes ?? "")
@@ -78,8 +85,6 @@ export function RightPanel({
       onNotesChange(localNotes)
     }
   }, [localNotes, notesMap, activeVersion, onNotesChange])
-
-  const getStatus = (id: string): VariantStatus => notesMap[id]?.status ?? "pending"
 
   const statusIcon = (id: string) => {
     const status = getStatus(id)
@@ -193,7 +198,7 @@ export function RightPanel({
         </div>
         <ScrollArea className="flex-1">
           <div className="py-2">
-            {versions.map((version) => renderVersionButton(version, false))}
+            {[...pendingVersions, ...reviewedVersions].map((version) => renderVersionButton(version, false))}
           </div>
         </ScrollArea>
       </div>
@@ -218,8 +223,37 @@ export function RightPanel({
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="px-2 py-1">
-          {versions.map((version) => renderVersionButton(version, true))}
+        <div className="py-1">
+          {pendingVersions.length > 0 && (
+            <div>
+              {reviewedVersions.length > 0 && (
+                <div className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                  Pending ({pendingVersions.length})
+                </div>
+              )}
+              <div className="px-2">
+                {pendingVersions.map((version) => renderVersionButton(version, true))}
+              </div>
+            </div>
+          )}
+
+          {reviewedVersions.length > 0 && (
+            <Collapsible open={reviewedExpanded} onOpenChange={setReviewedExpanded}>
+              <CollapsibleTrigger className="flex items-center gap-2 w-full px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-accent/50 transition-colors">
+                {reviewedExpanded ? (
+                  <ChevronDown className="h-3 w-3" />
+                ) : (
+                  <ChevronRight className="h-3 w-3" />
+                )}
+                Reviewed ({reviewedVersions.length})
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="px-2 pb-1">
+                  {reviewedVersions.map((version) => renderVersionButton(version, true))}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
         </div>
       </ScrollArea>
 
